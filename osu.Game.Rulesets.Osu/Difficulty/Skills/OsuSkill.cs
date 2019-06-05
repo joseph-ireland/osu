@@ -96,6 +96,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             }
         }
 
+        public double Difficulty { get; private set; }
+
         /// <summary>
         /// Process a <see cref="DifficultyHitObject"/> and update current strain values.
         /// Also calculates hit probability function for this note and adds to list
@@ -169,7 +171,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
                 difficultyPartialSums[i] = total;
             }
 
-            //double difficulty = Math.Log(total) / starBonusK;
+            Difficulty = Math.Pow(total, 1 / starBonusK);
 
             calculateSkillToFcSubsets(difficultyPartialSums);
 
