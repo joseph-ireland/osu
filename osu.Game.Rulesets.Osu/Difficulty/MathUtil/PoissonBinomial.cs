@@ -47,4 +47,35 @@ namespace osu.Game.Rulesets.Osu.Difficulty.MathUtil
             return result;
         }
     }
+
+    public class IterativePoissonBinomial
+    {
+        private double mu=0, var=0, gamma=0;
+
+        public void AddProbability(double p)
+        {
+            mu += p;
+            var += p * (1 - p);
+            gamma += p * (1 - p) * (1 - 2 * p);
+        }
+
+        public double Cdf(double count)
+        {
+            if (var == 0)
+                return mu <= count ? 1 : 0;
+
+            double sigma = Math.Sqrt(var);
+            double v = gamma / (6 * Math.Pow(sigma, 3));
+            double k = (count + 0.5 - mu) / sigma;
+
+            double result = Normal.CDF(0, 1, k) + v * (1 - k * k) * Normal.PDF(0, 1, k);
+
+            if (result < 0) return 0;
+            if (result > 1) return 1;
+
+            return result;
+        }
+
+
+    }
 }

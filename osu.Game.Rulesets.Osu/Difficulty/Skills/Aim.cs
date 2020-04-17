@@ -155,24 +155,60 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         }
 
 
-
         /// <summary>
         /// Calculate miss count for a list of throughputs (used to evaluate miss count of plays).
         /// </summary>
         private static (double[], double[]) calculateMissTPsMissCounts(IList<OsuMovement> movements, double fcTimeTP)
         {
             double[] missTPs = new double[difficultyCount];
-            double[] missCounts = new double[difficultyCount];
+            double [] missCounts = new double[difficultyCount]{0,1,2,3,4,5,6,7,8,9,10,12,14,18,25,35,50,90,120,200};
             double fcProb = calculateFCProb(movements, fcTimeTP, defaultCheeseLevel);
 
             for (int i = 0; i < difficultyCount; i++)
             {
-                double missTP = fcTimeTP * (1 - Math.Pow(i, 1.5) * 0.005);
-                double[] missProbs = getMissProbs(movements, missTP);
-                missTPs[i] = missTP;
-                missCounts[i] = getMissCount(fcProb, missProbs);
+                if (missCounts[i] >= movements.Count)
+                    missTPs[i] = tpMin;
+                else
+                    missTPs[i] = tpForMissCount(movements, missCounts[i]);
             }
             return (missTPs, missCounts);
+        }
+
+        private static double tpForMissCount(IList<OsuMovement> movements, double missCount)
+        {
+            double length = movements.Last().Time - movements.First().Time;
+            double timeThreshold = timeThresholdBase + length;
+
+            double maxFCTime = fcTimeForMissCount(movements, missCount, tpMin);
+
+            if (maxFCTime <= timeThreshold)
+                return tpMin;
+
+            double minFCTime = fcTimeForMissCount(movements, missCount, tpMax);
+
+            if (minFCTime >= timeThreshold)
+                return tpMax;
+
+            double fcTimeMinusThreshold(double tp) => fcTimeForMissCount(movements, missCount, tp) - timeThreshold;
+            return Brent.FindRootExpand(fcTimeMinusThreshold, tpMin, 20, timeThresholdBase * timePrecision, maxIterations);
+        }
+
+        private static double fcTimeForMissCount(IList<OsuMovement> movements, double missCount, double tp)
+        {
+            double[] missProbs = getMissProbs(movements, tp);
+            IterativePoissonBinomial poibin = new IterativePoissonBinomial();
+
+            double totalTime = 5;
+            foreach(OsuMovement m in movements)
+            {
+                double missProb = 1 - HitProbabilities.CalculateCheeseHitProb(m, tp, defaultCheeseLevel);
+                poibin.AddProbability(missProb);
+
+                totalTime += m.RawMT * poibin.Cdf(missCount);
+            }
+            if (poibin.Cdf(missCount) < 1e-10)
+                return double.PositiveInfinity;
+            return totalTime / poibin.Cdf(missCount);
         }
 
 
